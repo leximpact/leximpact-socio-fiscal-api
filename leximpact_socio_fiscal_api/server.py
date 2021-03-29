@@ -1,5 +1,4 @@
-import json
-import time
+import asyncio
 
 from fastapi import FastAPI, WebSocket
 from fastapi.responses import HTMLResponse
@@ -67,8 +66,7 @@ async def websocket_endpoint(websocket: WebSocket):
     simulation = None
     situation = None
     while True:
-        data_json = await websocket.receive_text()
-        data = json.loads(data_json)
+        data = await websocket.receive_json()
         new_decomposition = data.get("decomposition")
         if new_decomposition is not None:
             print("Received decomposition.")
@@ -89,10 +87,10 @@ async def websocket_endpoint(websocket: WebSocket):
         if situation is None or simulation is None:
             errors["situation"] = "Missing value"
         if len(errors) > 0:
-            await websocket.send_text(json.dumps(dict(errors=errors)))
+            await websocket.send_json(dict(errors=errors))
             continue
 
         for node in walDecompositionLeafs(decomposition):
             value = simulation.calculate_add(node["code"], "2017")
             print(f"Calculated {node['code']}: {value}")
-            await websocket.send_text(json.dumps(dict(code=node["code"], value=value.tolist())))
+            await websocket.send_json(dict(code=node["code"], value=value.tolist()))

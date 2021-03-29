@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "leximpact-socio-fiscal-api"
+version = "0.1.0"
+description = "_HTTP + WebSocket API for OpenFisca"
+authors = ["Emmanuel Raviart <emmanuel@raviart.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+OpenFisca-France = "^51.7.1"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

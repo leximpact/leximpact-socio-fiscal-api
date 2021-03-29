@@ -9,7 +9,7 @@ homepage = "https://simulateur-socio-fisca.leximpact.dev/"
 repository = "https://github.com/leximpact/leximpact-socio-fiscal-api"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.7"
 OpenFisca-France = "^51.7.1"
 fastapi = "^0.63.0"
 uvicorn = {extras = ["standard"], version = "^0.13.4"}
@@ -17,7 +17,7 @@ uvicorn = {extras = ["standard"], version = "^0.13.4"}
 [tool.poetry.dev-dependencies]
 pytest = "^5.2"
 autopep8 = "^1.5.6"
-flake8 = "^3.7.0"
+flake8 = "^3.9.0"
 
 [tool.poetry.scripts]
 leximpact_socio-fiscal_api = "leximpact_socio_fiscal_api.scripts.serve:main"

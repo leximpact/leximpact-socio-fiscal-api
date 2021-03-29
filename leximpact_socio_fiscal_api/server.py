@@ -1,6 +1,10 @@
+import json
+import time
+
 from fastapi import FastAPI, WebSocket
 from fastapi.responses import HTMLResponse
-
+from openfisca_core.simulation_builder import SimulationBuilder
+from openfisca_france import FranceTaxBenefitSystem
 
 app = FastAPI()
 
@@ -38,6 +42,18 @@ html = """
 </html>
 """
 
+tax_benefit_system = FranceTaxBenefitSystem()
+
+
+def walDecompositionLeafs(node):
+    children = node.get("children")
+    if children:
+        for child in children:
+            yield from walDecompositionLeafs(child)
+        # Note: Ignore nodes that are the total of their children.
+    else:
+        yield node
+
 
 @app.get("/")
 async def get():
@@ -47,6 +63,36 @@ async def get():
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
+    decomposition = None
+    simulation = None
+    situation = None
     while True:
-        data = await websocket.receive_text()
-        await websocket.send_text(f"Message text was: {data}")
+        data_json = await websocket.receive_text()
+        data = json.loads(data_json)
+        new_decomposition = data.get("decomposition")
+        if new_decomposition is not None:
+            print("Received decomposition.")
+            decomposition = new_decomposition
+        new_situation = data.get("situation")
+        if new_situation is not None:
+            print("Received situation.")
+            situation = new_situation
+            simulation_builder = SimulationBuilder()
+            simulation = simulation_builder.build_from_entities(tax_benefit_system, situation)
+        if not data.get("calculate"):
+            continue
+        print("Calculating…")
+
+        errors = {}
+        if decomposition is None:
+            errors["decomposition"] = "Missing value"
+        if situation is None or simulation is None:
+            errors["situation"] = "Missing value"
+        if len(errors) > 0:
+            await websocket.send_text(json.dumps(dict(errors=errors)))
+            continue
+
+        for node in walDecompositionLeafs(decomposition):
+            value = simulation.calculate_add(node["code"], "2017")
+            print(f"Calculated {node['code']}: {value}")
+            await websocket.send_text(json.dumps(dict(code=node["code"], value=value.tolist())))

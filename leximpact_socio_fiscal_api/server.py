@@ -94,3 +94,4 @@ async def websocket_endpoint(websocket: WebSocket):
             value = simulation.calculate_add(node["code"], "2017")
             print(f"Calculated {node['code']}: {value}")
             await websocket.send_json(dict(code=node["code"], value=value.tolist()))
+            await asyncio.sleep(0)

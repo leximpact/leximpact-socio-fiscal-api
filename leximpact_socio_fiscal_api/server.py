@@ -63,27 +63,39 @@ async def get():
 async def websocket_endpoint(websocket: WebSocket):
     await websocket.accept()
     decomposition = None
+    period = None
     simulation = None
     situation = None
     while True:
         data = await websocket.receive_json()
-        new_decomposition = data.get("decomposition")
-        if new_decomposition is not None:
-            print("Received decomposition.")
-            decomposition = new_decomposition
-        new_situation = data.get("situation")
-        if new_situation is not None:
-            print("Received situation.")
-            situation = new_situation
-            simulation_builder = SimulationBuilder()
-            simulation = simulation_builder.build_from_entities(tax_benefit_system, situation)
-        if not data.get("calculate"):
+        calculate = False
+        for key, value in data.items():
+            if key == "calculate":
+                calculate = True
+            if key == "decomposition":
+                print("Received decomposition.")
+                decomposition = value
+                continue
+            if key == "period":
+                print("Received period.")
+                period = value
+                continue
+            if key == "situation":
+                print("Received situation.")
+                situation = value
+                simulation_builder = SimulationBuilder()
+                simulation = simulation_builder.build_from_entities(tax_benefit_system, situation)
+                continue
+
+        if not calculate:
             continue
         print("Calculating…")
 
         errors = {}
         if decomposition is None:
             errors["decomposition"] = "Missing value"
+        if period is None:
+            errors["period"] = "Missing value"
         if situation is None or simulation is None:
             errors["situation"] = "Missing value"
         if len(errors) > 0:
@@ -91,7 +103,7 @@ async def websocket_endpoint(websocket: WebSocket):
             continue
 
         for node in walDecompositionLeafs(decomposition):
-            value = simulation.calculate_add(node["code"], "2017")
+            value = simulation.calculate_add(node["code"], period)
             print(f"Calculated {node['code']}: {value}")
             await websocket.send_json(dict(code=node["code"], value=value.tolist()))
             await asyncio.sleep(0)

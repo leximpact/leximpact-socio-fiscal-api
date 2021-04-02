@@ -65,6 +65,10 @@ async def websocket_endpoint(websocket: WebSocket):
 
         for node in walDecompositionLeafs(decomposition):
             value = simulation.calculate_add(node["code"], period)
+            population = simulation.get_variable_population(node["code"])
+            entity_count = simulation_builder.entity_counts[population.entity.plural]
+            if entity_count > 1:
+                value = np.sum(np.split(value, simulation.get_variable_population(node["code"]).count // entity_count), 1)
             print(f"Calculated {node['code']}: {value}")
             await websocket.send_json(dict(code=node["code"], value=value.tolist()))
             await asyncio.sleep(0)

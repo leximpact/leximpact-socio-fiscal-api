@@ -7,7 +7,9 @@ Used by [LexImpact Socio-Fiscal UI](https://github.com/leximpact/leximpact-socio
 ## Installation
 
 ```bash
-TODO
+git clone https://github.com/leximpact/leximpact-socio-fiscal-api.git
+cd leximpact-socio-fiscal-api/
+poetry install
 ```
 
 ## Usage

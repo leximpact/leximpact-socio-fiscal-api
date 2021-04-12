@@ -15,5 +15,6 @@ poetry install
 ## Usage
 
 ```bash
+poetry shell
 uvicorn --reload leximpact_socio_fiscal_api.server:app
 ```

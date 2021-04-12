@@ -11,7 +11,6 @@ from typing import List, Optional
 app = FastAPI()
 
 
-"""
 from openfisca_core.parameters import ParameterNode  # type: ignore
 from openfisca_core import periods  # type: ignore
 from openfisca_france import FranceTaxBenefitSystem  # type: ignore
@@ -20,29 +19,9 @@ from openfisca_france.model.base import Reform  # type: ignore
 from Simulation_engine.reform_nbptr import generate_nbptr_class
 
 
-#T = TypeVar("T", bound="ParametricReform")
-
-class CSGReform(Reform):
-    def __init__(self, tbs: FranceTaxBenefitSystem, payload: dict, period: str) -> None:
-        #self.payload = payload.get("csg", {}) #Pas utilisé  for now
-        self.instant = periods.instant(period)
-        self.period = periods.period("year:1900:200")
-        super().__init__(tbs)
-
-    def modifier(self, parameters: ParameterNode) -> ParameterNode:
-        print(parameters)
-        parameter =getattr(parameters, "prelevements_sociaux.contributions.csg.activite.imposable")
-        #parameters..update(period = self.period, value = 0)
-        return parameter
-
-    def apply(self) -> None:
-        self.modify_parameters(modifier_function=self.modifier)"""
-
-
-
 
 tax_benefit_system = FranceTaxBenefitSystem()
-#tax_benefit_system = CSGReform(FranceTaxBenefitSystem(), None, "2020")
+# 
 
 
 def walDecompositionLeafs(node):
@@ -114,12 +93,24 @@ class CasType(BaseModel):
     revenu_remplacement: float
     revenu_retraite: float
     wprm: Optional[float]
+    class Config:
+        schema_extra = {
+            "example": 
+                {
+                    "revenu_activite": 50000,
+                    "revenu_capital": 0,
+                    "revenu_remplacement": 0,
+                    "revenu_retraite": 0,
+                    "wprm": 10
+                }
+        }
 
 class TabCasType(BaseModel):
     castype: List[CasType]
     class Config:
         schema_extra = {
-            "example": 
+            "example": {
+                "castype":
                 [
                     {
                         "revenu_activite": 50000,
@@ -146,7 +137,14 @@ class TabCasType(BaseModel):
                         "revenu_retraite": 50000
                     }
                     ]
+            }
                 }
+
+
+class ReformCSG(BaseModel):
+    csg_activite_imposable_taux: float
+    csg_activite_deductible_taux: float
+
 
 def CasTypeToSituation(ct):
     return {
@@ -244,16 +242,21 @@ def TabloCasTypeToSituations(tct : List[CasType]):
         }
     }
 
-
-@app.post("/csg", tags=["castype"])
-def csg(tct: TabCasType):
-    situation = TabloCasTypeToSituations(tct)
+def compute_csg(tct, tax_benefit_system):
+    print('debut')
+    situation = TabloCasTypeToSituations(tct.castype)
     simulation_builder = SimulationBuilder()
     simulation = simulation_builder.build_from_entities(tax_benefit_system, situation)
+    print('Simu ready_')
     value = simulation.calculate_add('csg', '2021')
     population = simulation.get_variable_population('csg')
     entity_count = simulation_builder.entity_counts[population.entity.plural]
-    print(f"Calculated : {entity_count} {value}")            
+    print(f"Calculated : {entity_count} {value}")
+    return value
+
+@app.post("/csg", tags=["castype"])
+def csg(tct: TabCasType):
+    value = compute_csg(tct, tax_benefit_system)
     return [{"csg": float(v)} for v in value]
     
 
@@ -274,8 +277,49 @@ def csv_to_list_castype(filename):
 
 @app.get("/csg_pop", tags=["castype"])
 def csg_pop():
-    lct= csv_to_list_castype("./data/DCT.csv")
-    mes_csg= csg(lct)
-    return sum(mes_csg[i]["csg"]*lct[i].wprm for i in range(len(lct)))
+    lct = csv_to_list_castype("./data/DCT.csv")
+    mes_csg = compute_csg(TabCasType(castype=lct), tax_benefit_system)
+    print("lct",lct)
+    print("mes_csg", mes_csg)
+    return sum(mes_csg[i]*lct[i].wprm for i in range(len(lct)))
 
+
+@app.get("/")
+def root():
+    return {"message": "please go to /docs"}
+
+
+
+
+#T = TypeVar("T", bound="ParametricReform")
+
+class CSGReform(Reform):
+    def __init__(self, tbs: FranceTaxBenefitSystem, payload: ReformCSG, period: str) -> None:
+        self.payload = payload 
+        self.instant = periods.instant(period)
+        self.period = periods.period('year:1900:200')
+        super().__init__(tbs)
+
+    def modifier(self, parameters: ParameterNode) -> ParameterNode:
+        parameters.prelevements_sociaux.contributions.csg.activite.imposable.taux.update(period = self.period, value = self.payload.csg_activite_imposable_taux)
+        parameters.prelevements_sociaux.contributions.csg.activite.deductible.taux.update(period = self.period, value = self.payload.csg_activite_deductible_taux)
+        return parameters
+
+
+    def apply(self) -> None:
+        self.modify_parameters(modifier_function=self.modifier)
+
+        
+@app.post("/reform_csg")
+def reform_csg(reform: ReformCSG):
+    """
+    :reform: OpenFisca parameters to change.
+    """
+
+    tax_benefit_system = CSGReform(FranceTaxBenefitSystem(), reform, "2020")
+    lct = csv_to_list_castype("./data/DCT.csv")
+    mes_csg = compute_csg(TabCasType(castype=lct), tax_benefit_system)
+    print("lct",lct[0])
+    print("mes_csg", mes_csg)
+    return sum(mes_csg[i]*lct[i].wprm for i in range(len(lct)))
 

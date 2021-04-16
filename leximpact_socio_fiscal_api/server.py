@@ -109,12 +109,12 @@ def export_parameter(parameter):
                         for item_value in value
                         )
                     ), value
-                if 'rate' in value[0].children:
-                    scale = build_api_scale(parameter, 'rate')
+                if "rate" in value[0].children:
+                    scale = build_api_scale(parameter, "rate")
                     export["type"] = "marginal_rate"
                 else:
-                    assert 'amount' in value[0].children
-                    scale = build_api_scale(parameter, 'amount')
+                    assert "amount" in value[0].children
+                    scale = build_api_scale(parameter, "amount")
                     export["type"] = "single_amount"
                 assert (
                     isinstance(scale, dict)
@@ -297,7 +297,7 @@ async def calculate(websocket: WebSocket):
                 entity_count = simulation_builder.entity_counts[population.entity.plural]
                 if entity_count > 1:
                     value = np.sum(np.split(value, simulation.get_variable_population(node["code"]).count // entity_count), 1)
-                print(f"Calculated {node['code']}: {value}")
+                print(f"Calculated {node["code"]}: {value}")
                 await websocket.send_json(dict(code=node["code"], value=value.tolist()))
                 await asyncio.sleep(0)
 

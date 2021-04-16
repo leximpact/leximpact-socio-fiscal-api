@@ -11,11 +11,16 @@ git clone https://github.com/leximpact/leximpact-socio-fiscal-api.git
 cd leximpact-socio-fiscal-api/
 poetry install
 
-# Create environment configuration file and then edit it to your needs.
+poetry shell
+# Install an OpenFisca country package (for example OpenFisca-France).
+pip install OpenFisca-France
+# Create environment configuration file and then edit it to reference country package et its JSON output.
 cp example.env .env
 ```
 
 ## Usage
+
+Start web API server:
 
 ```bash
 poetry shell

@@ -1,5 +1,4 @@
 import asyncio
-from functools import cache
 
 from fastapi import APIRouter, Depends, WebSocket
 import numpy as np
@@ -14,18 +13,22 @@ router = APIRouter(
     prefix="/simulations",
     tags=["simulations"],
     )
+tax_benefit_system = None
 
 
-@cache
 def get_tax_benefit_system(settings: config.Settings = Depends(config.get_settings)):
-    return build_tax_benefit_system(
-        settings.country_package,
-        # settings.extension,
-        # settings.reform,
-        )
+    global tax_benefit_system
+    if tax_benefit_system is None:
+        tax_benefit_system = build_tax_benefit_system(
+            settings.country_package,
+            None,  # settings.extension,
+            None,  # settings.reform,
+            )
+    return tax_benefit_system
 
 
-@router.websocket("/calculate")
+# Note: Router prefix is not used for websocket‽
+@router.websocket("/simulations/calculate")
 async def calculate(websocket: WebSocket, tax_benefit_system: TaxBenefitSystem = Depends(get_tax_benefit_system)):
     await websocket.accept()
     decomposition = None

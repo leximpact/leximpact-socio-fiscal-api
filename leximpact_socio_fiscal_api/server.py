@@ -51,7 +51,7 @@ def export_parameter(parameter):
                         for item_value in value
                         )
                     or isinstance(value, dict) and all(
-                        periods.INSTANT_PATTERN.match(item_key) and isinstance(value, item_value)
+                        periods.INSTANT_PATTERN.match(item_key) and isinstance(item_value, str)
                         for item_key, item_value in value.items()
                         )
                     ), value

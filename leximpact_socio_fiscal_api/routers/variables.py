@@ -24,6 +24,8 @@ def get_variables(settings: config.Settings = Depends(config.get_settings)):
 @router.get("/")
 async def list_variables(variables = Depends(get_variables)):
     return variables
-# async def list_variables(settings: config.Settings = Depends(config.get_settings)):
-#     with open(os.path.join(settings.country_json_dir, "variables.json"), encoding="utf-8") as variables_file:
-#         return json.load(variables_file)
+
+
+@router.get("/{name}")
+async def get_variable(name: str, variables = Depends(get_variables)):
+    return variables.get(name)

@@ -24,3 +24,13 @@ def get_parameters(settings: config.Settings = Depends(config.get_settings)):
 @router.get("/")
 async def list_parameters(parameters = Depends(get_parameters)):
     return parameters
+
+
+@router.get("/{name}")
+async def get_parameter(name: str, parameters = Depends(get_parameters)):
+    parameter = parameters
+    for id in name.split("."):
+        parameter = parameter["children"].get(id)
+        if parameter is None:
+            return None
+    return parameter

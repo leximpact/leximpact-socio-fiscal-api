@@ -8,6 +8,9 @@ from openfisca_france import FranceTaxBenefitSystem  # type: ignore
 from openfisca_france.model.base import Reform  # type: ignore
 from leximpact_socio_fiscal_api.database.schemas import ReformCSG, CasType, TabCasType
 
+# For profiling
+import timeit
+from memory_profiler import profile
 
 tax_benefit_system = FranceTaxBenefitSystem()
 router = APIRouter()
@@ -110,16 +113,18 @@ def TabloCasTypeToSituations(tct: List[CasType]):
 
 
 def compute_csg(tct, tax_benefit_system):
-    print('debut')
+    # print('debut')
     situation = TabloCasTypeToSituations(tct.castype)
+    print("\tSituation - Nombre de foyers : ", len(situation['foyers_fiscaux']))
+    print("\tSituation - Nombre d'individus' : ", len(situation['individus']))
     simulation_builder = SimulationBuilder()
     simulation = simulation_builder.build_from_entities(
         tax_benefit_system, situation)
-    print('Simu ready_')
+    # print('Simu ready_')
     value = simulation.calculate_add('csg', '2021')
-    population = simulation.get_variable_population('csg')
-    entity_count = simulation_builder.entity_counts[population.entity.plural]
-    print(f"Calculated : {entity_count} {value}")
+    # population = simulation.get_variable_population('csg')
+    # entity_count = simulation_builder.entity_counts[population.entity.plural]
+    # print(f"Calculated : {entity_count} {value}")
     return value
 
 
@@ -142,12 +147,12 @@ def csv_to_list_castype(filename):
         rev_rempl = sum(
             data[data["idfoy"] == idfoy]["chomage_brut"].values)
         wprm = data[data["idfoy"] == idfoy]["wprm"].values[0]
-        # print("Oui mon type est", type(revenu_salarie))
         mon_cas_type = CasType(
             revenu_activite=revenu_salarie, revenu_capital=rev_capital,
             revenu_remplacement=rev_rempl, revenu_retraite=rev_retraite,
             wprm=wprm)
         d += [mon_cas_type]
+    # print("Nombre de foyer de cas type : ", len(d))
     return d
 
 
@@ -179,15 +184,34 @@ class CSGReform(Reform):
         self.modify_parameters(modifier_function=self.modifier)
 
 
-@router.post("/reform_csg")
-def reform_csg(reform: ReformCSG):
+@profile
+def compute_reform(reform: ReformCSG):
     """
     :reform: OpenFisca parameters to change.
     """
 
+    # Monitor CPU and RAM
+    # timeit.timeit('"-".join(str(n) for n in range(100))', number=10000)
+    debut = timeit.default_timer()
     tax_benefit_system = CSGReform(FranceTaxBenefitSystem(), reform, "2020")
+    print(f"Temps de création de la réforme : {timeit.default_timer() - debut} secondes")
+    debut_load_csv = timeit.default_timer()
     lct = csv_to_list_castype("./data/DCT.csv")
+
+    # for i in range(10):  # 10 -> 6 144 foyers
+    #     lct += lct
+    print(f"Temps de création des faux castypes : {timeit.default_timer() - debut_load_csv} secondes")
+    print(f"Temps de traitement avant calcul : {timeit.default_timer() - debut} secondes")
+    debut_compute = timeit.default_timer()
     mes_csg = compute_csg(TabCasType(castype=lct), tax_benefit_system)
-    print("lct", lct[0])
-    print("mes_csg", mes_csg)
-    return sum(mes_csg[i] * lct[i].wprm for i in range(len(lct)))
+    print(f"Temps de calcul sur la population : {timeit.default_timer() - debut_compute} secondes")
+    montant_total = sum(mes_csg[i] * lct[i].wprm for i in range(len(lct)))
+    print(f"Temps de traitement total pour {len(lct)} foyers : {timeit.default_timer() - debut} secondes")
+    # print("lct", lct[0])
+    # print("mes_csg", mes_csg)
+    return montant_total
+
+
+@router.post("/reform_csg")
+def reform_csg(reform: ReformCSG):
+    return compute_reform(reform)

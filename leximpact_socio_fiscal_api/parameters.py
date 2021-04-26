@@ -21,6 +21,21 @@ def get_parameter(name: str):
     return parameter
 
 
+def get_parameter_with_ancestors(name: str):
+    ancestors = []
+    parameter = parameters
+    for id in name.split("."):
+        if parameter["name"]:
+            ancestors.append(parameter)
+        children = parameter.get("children")
+        if children is None:
+            return None, ancestors
+        parameter = children.get(id)
+        if parameter is None:
+            return None, ancestors
+    return parameter, ancestors
+
+
 def get_parameters(settings: config.Settings = Depends(config.get_settings)):
     global parameters
     if parameters is None:

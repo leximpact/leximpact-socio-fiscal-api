@@ -53,7 +53,11 @@ async def calculate(websocket: WebSocket, tax_benefit_system: TaxBenefitSystem =
                 continue
             if key == "reform":
                 print("Received reform.")
-                reform = value
+                reform = None if value is None else {
+                    parameter_name: parameter_value
+                    for parameter_name, parameter_value in value.items()
+                    if parameter_value is not None
+                    } or None
                 continue
             if key == "situation":
                 print("Received situation.")
@@ -64,16 +68,14 @@ async def calculate(websocket: WebSocket, tax_benefit_system: TaxBenefitSystem =
             print("Calculating…")
 
             errors = {}
-            if decomposition is None:
+            if not decomposition:
                 errors["decomposition"] = "Missing value"
             if period is None:
                 errors["period"] = "Missing value"
-            if situation is None:
+            if not situation:
                 errors["situation"] = "Missing value"
             simulation_builder = SimulationBuilder()
-            if reform is None:
-                simulation_tax_benefit_system = tax_benefit_system
-            else:
+            if reform:
                 def simulation_modifier(parameters: ParameterNode):
                     for name, change in reform.items():
                         ids = name.split(".")
@@ -92,6 +94,8 @@ async def calculate(websocket: WebSocket, tax_benefit_system: TaxBenefitSystem =
                         self.modify_parameters(modifier_function = simulation_modifier)
 
                 simulation_tax_benefit_system = SimulationReform(tax_benefit_system)
+            else:
+                simulation_tax_benefit_system = tax_benefit_system
 
             if len(errors) > 0:
                 await websocket.send_json(dict(errors=errors))

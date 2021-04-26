@@ -18,7 +18,10 @@ def get_variables(settings: config.Settings = Depends(config.get_settings)):
     return variables
 
 
-def iter_variable_input_variables(variable, date, encountered_variables_name = set()):
+def iter_variable_input_variables(variable, date, encountered_variables_name = None):
+    if encountered_variables_name is None:
+        encountered_variables_name = set()
+
     name = variable["name"]
     if name in encountered_variables_name:
         return
@@ -47,7 +50,12 @@ def iter_variable_input_variables(variable, date, encountered_variables_name = s
         yield from iter_variable_input_variables(referred_variable, date, encountered_variables_name)
 
 
-def iter_variable_parameters(variable, date, encountered_parameters_name = set(), encountered_variables_name = set()):
+def iter_variable_parameters(variable, date, encountered_parameters_name = None, encountered_variables_name = None):
+    if encountered_parameters_name is None:
+        encountered_parameters_name = set()
+    if encountered_variables_name is None:
+        encountered_variables_name = set()
+
     name = variable["name"]
     if name in encountered_variables_name:
         return

@@ -2,6 +2,8 @@ import asyncio
 
 from fastapi import APIRouter, Depends, WebSocket
 import numpy as np
+from openfisca_core.parameters import ParameterNode
+from openfisca_core.reforms import Reform
 from openfisca_core.scripts import build_tax_benefit_system
 from openfisca_core.simulation_builder import SimulationBuilder
 from openfisca_core.taxbenefitsystems import TaxBenefitSystem
@@ -33,7 +35,7 @@ async def calculate(websocket: WebSocket, tax_benefit_system: TaxBenefitSystem =
     await websocket.accept()
     decomposition = None
     period = None
-    simulation = None
+    reform = None
     situation = None
     while True:
         data = await websocket.receive_json()
@@ -49,11 +51,13 @@ async def calculate(websocket: WebSocket, tax_benefit_system: TaxBenefitSystem =
                 print("Received period.")
                 period = value
                 continue
+            if key == "reform":
+                print("Received reform.")
+                reform = value
+                continue
             if key == "situation":
                 print("Received situation.")
                 situation = value
-                simulation_builder = SimulationBuilder()
-                simulation = simulation_builder.build_from_entities(tax_benefit_system, situation)
                 continue
 
         if calculate:
@@ -64,11 +68,36 @@ async def calculate(websocket: WebSocket, tax_benefit_system: TaxBenefitSystem =
                 errors["decomposition"] = "Missing value"
             if period is None:
                 errors["period"] = "Missing value"
-            if situation is None or simulation is None:
+            if situation is None:
                 errors["situation"] = "Missing value"
+            simulation_builder = SimulationBuilder()
+            if reform is None:
+                simulation_tax_benefit_system = tax_benefit_system
+            else:
+                def simulation_modifier(parameters: ParameterNode):
+                    for name, change in reform.items():
+                        ids = name.split(".")
+                        parameter = parameters
+                        for id in ids:
+                            parameter = getattr(parameter, id, None)
+                            if parameter is None:
+                                errors.setdefault("reform", {})[name] = f"Parameter doesn't exist. Missing {id}"
+                                break
+                        else:
+                            parameter.update(start = change.get("start"), stop = change.get("stop"), value = change.get("value"))
+                    return parameters
+
+                class SimulationReform(Reform):
+                    def apply(self):
+                        self.modify_parameters(modifier_function = simulation_modifier)
+
+                simulation_tax_benefit_system = SimulationReform(tax_benefit_system)
+
             if len(errors) > 0:
                 await websocket.send_json(dict(errors=errors))
                 continue
+
+            simulation = simulation_builder.build_from_entities(simulation_tax_benefit_system, situation)
 
             for node in walDecompositionLeafs(decomposition):
                 value = simulation.calculate_add(node["code"], period)

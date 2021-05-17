@@ -1,3 +1,11 @@
+---
+
+# Pour consulter la dernière version du projet, merci de vous rendre sur https://git.leximpact.dev/leximpact/leximpact-socio-fiscal-api/
+
+---
+![](changement-depot-github-gitlab-illustration-small.png)
+---
+
 # LexImpact Socio-Fiscal API
 
 _HTTP + WebSocket API for OpenFisca_
